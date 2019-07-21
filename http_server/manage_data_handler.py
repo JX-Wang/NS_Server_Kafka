@@ -157,7 +157,7 @@ class RecvDomainRequestHandler(tornado.web.RequestHandler):
             periodic_domain_request(domain_data, task_id, local_file_name)  # 执行定时查询节点
         elif task_type == 'query':
             # query_domain_request(domain_data, task_id, local_file_name)  # post 传输数据 执行实时查询节点
-            query_domain_request_kafka(domain_data, task_id, local_file_name)  # kafka 传输数据
+            query_domain_request_kafka(domain_data, task_id)  # kafka 传输数据
 
 # @gen.coroutine
 # def query_domain_request(domains, task_id, file_name):
@@ -181,6 +181,7 @@ class RecvDomainRequestHandler(tornado.web.RequestHandler):
 #             excpetion = respond[1]
 #         logger.logger.error('向实时查询节点发送域名数据失败%s/3' % str(i))
 
+
 @gen.coroutine
 def query_domain_request_kafka(domain_data, task_id):
     """
@@ -190,16 +191,12 @@ def query_domain_request_kafka(domain_data, task_id):
     :return Null
     :该方法通过kafka将数据拆分后传输到broker中
     """
-    local_file_name = "domain"
     server = "10.245.146.115:9092"
-    topics = ["ddivide6", "ddivide7", "ddivide8", "ddivide9"]
-    with open(local_file_name, 'r') as f:
-        domain = f.readlines()
-    domains = domain_divide(blocks=4, id=1, type="query").bomb(value=domain)
+    topics = ["ddivide6", "ddivide7", "ddivide8"]
+    domains = domain_divide(blocks=3, id=task_id, type="query").bomb(value=domain_data)
     kafka_producer(topic=topics[0], server_list=server).push(values=domains[0])
     kafka_producer(topic=topics[1], server_list=server).push(values=domains[1])
     kafka_producer(topic=topics[2], server_list=server).push(values=domains[2])
-    kafka_producer(topic=topics[3], server_list=server).push(values=domains[3])
 
 
 @gen.coroutine
@@ -227,5 +224,9 @@ def periodic_domain_request(domains, task_id, file_name):
 
 if __name__ == '__main__':
     print 1
-    query_domain_request_kafka()
+    local_file_name = "domains"
+    with open(local_file_name, 'r') as f:
+        domain = f.readlines()
+        domain = ['1.com', '1.com', '1.com', '2.com', '2.com', '2.com', '3.com', '3.com', '3.com']
+        query_domain_request_kafka(domain_data=domain, task_id=1)
     print "done"

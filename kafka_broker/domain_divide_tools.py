@@ -7,7 +7,7 @@ Author @ wangjunxiong
 Date @ 2019/7/20
 """
 from kafka_producer import kafka_producer
-
+import copy
 
 def divide(listTemp, n):
     for i in range(0, len(listTemp), n):
@@ -27,6 +27,12 @@ class domain_divide(object):
         self.type = type
 
     def bomb(self, value):
+        rst_dict = {
+            "id": self.id,
+            "domains": "",
+            "task_type": self.type
+        }
+        rst = []
         domain_rst = []
         block_len = len(value) / self.blocks
         if len(value) < self.blocks:
@@ -41,12 +47,14 @@ class domain_divide(object):
                 pass
             # domain_rst = divide(value, self.blocks)
             # print type(domain_rst)
+
             for domain_list in domain_rst:
-                domain_list.append(self.id)
-                domain_list.append(self.type)
+                rst_dict['domains'] = domain_list
+                rst.append(copy.deepcopy(rst_dict))
+                rst_dict['domains'] = ""
         except Exception as e:
             print "E Domain Divide Error ->", str(e)
-        return domain_rst
+        return rst
 
 
 if __name__ == '__main__':

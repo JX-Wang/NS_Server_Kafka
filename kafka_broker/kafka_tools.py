@@ -13,7 +13,7 @@ from time import sleep
 class kafka_producer:
     """
     kafka producer
-    func -> kafka_producer("ddivide6", "1.1.1.1:9092").pull("this msg will be push to 1.1.1.1:9002, topic ddivide6")
+    func -> kafka_producer("ddivide6", "1.1.1.1:9092").pull("msg")
     """
     def __init__(self, topic, server_list):
         self.server_list = server_list
@@ -72,16 +72,22 @@ class clean_topic:
 if __name__ == '__main__':
     topic = "ddivide6"
     server = "10.245.146.115:9092"
-    msg_content = kafka_consumer(topic=topic, server_list=server).pull()
-    while 1:
-        try:
-            domain = msg_content.next()
-            print domain
-            # 这里可以将domain存文件后读取文件进行探测
-            # 也可以直接调用domain进行探测
-            # 存完文件，或者探测完后，通过while循环再次从生成器中读取发来的的数据
-        except Exception as e:
-            pass  # 没有next表示broker中没有数据，继续监听即可
+    # msg_content = kafka_consumer(topic=topic, server_list=server).pull()
+    # while 1:
+    #     try:
+    #         domain = msg_content.next()
+    #         print domain[1]
+    #         print type(domain[1])
+    #         rst = eval(domain[1])
+    #         print type(rst)
+    #         print rst["domains"]
+    #         print rst["id"]
+    #         # 这里可以将domain存文件后读取文件进行探测
+    #         # 也可以直接调用domain进行探测
+    #         # 存完文件，或者探测完后，通过while循环再次从生成器中读取发来的的数据
+    #     except Exception as e:
+    #         pass  # 没有next表示broker中没有数据，继续监听即可
+    kafka_producer(topic="nsrst1", server_list="10.245.146.139:9092").push(values="###")
 
 
 

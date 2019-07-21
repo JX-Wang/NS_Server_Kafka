@@ -2,7 +2,6 @@
 """
 读取系统配置参数
 """
-
 import ConfigParser
 
 
@@ -49,6 +48,7 @@ def read_kafka_broker(file_name):
     broker = cf.get("kafka_ip", "ip")
     port = cf.getint("kafka_ip", "port")
     topic = cf.git("kafka_ip", "topic")
+
 
 if __name__ == '__main__':
     print read_server()
