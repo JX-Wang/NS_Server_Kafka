@@ -11,6 +11,10 @@ from time import sleep
 
 
 class kafka_producer:
+    """
+    kafka producer
+    func -> kafka_producer("ddivide6", "1.1.1.1:9092").pull("this msg will be push to 1.1.1.1:9002, topic ddivide6")
+    """
     def __init__(self, topic, server_list):
         self.server_list = server_list
         self.topic = topic
@@ -19,13 +23,20 @@ class kafka_producer:
     def push(self, values):
         try:
             producer = KafkaProducer(bootstrap_servers=[self.server_list])
-            producer.send(topic=self.topic, value=values)
+            # print self.topic
+            # print values
+            producer.send(topic=self.topic, value="{values}".format(values=values))
             producer.flush()
         except Exception as e:
             print "E kafka_broker producer send data error:", str(e)
 
 
 class kafka_consumer:
+    """
+    kafka consumer
+    func -> kafka_consumer("ddivide6", "1.1.1.1:9092").push()
+    :return generator but not result
+    """
     def __init__(self, topic, server_list):
         self.bootstrap_sever = server_list
         self.topic = topic
@@ -50,7 +61,7 @@ class kafka_create_topic:
 
 
 class clean_topic:
-    """the same as create topic"""
+    """the same as kafka create topic"""
     def __init__(self):
         pass
 
@@ -65,6 +76,7 @@ if __name__ == '__main__':
     while 1:
         try:
             domain = msg_content.next()
+            print domain
             # 这里可以将domain存文件后读取文件进行探测
             # 也可以直接调用domain进行探测
             # 存完文件，或者探测完后，通过while循环再次从生成器中读取发来的的数据

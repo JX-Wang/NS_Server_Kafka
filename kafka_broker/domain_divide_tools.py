@@ -8,6 +8,7 @@ Date @ 2019/7/20
 """
 from kafka_producer import kafka_producer
 
+
 def divide(listTemp, n):
     for i in range(0, len(listTemp), n):
         yield listTemp[i:i+n]
@@ -15,7 +16,7 @@ def divide(listTemp, n):
 
 class domain_divide(object):
     """:param blocks, id, type
-       :return divide domain list with id and type appended
+       :return divide domain list into different blocks with id and type appended
     """
     def __init__(self, blocks, id, type):
         if not id:

@@ -1,18 +1,30 @@
 # encoding:utf-8
 """
 主节点控制功能
+
+2019.7.21
+~ 修改部分for循环逻辑错误
+~ 修改asyn_fetch返回类型
+~
 """
+import sys
+
+sys.path.append("..")  # 上级目录加入
 
 import tornado.web
 import hashlib
 import time
 import json
-from system_parameter import *
-from Logger import Logger
-from async_fetch import async_fetch,async_post
 from tornado import gen
 
-logger = Logger(file_path='./query_log/',show_terminal=True)  # 日志配置
+# 第三方库
+from system_parameter import *
+from Logger import Logger
+from async_fetch import async_fetch, async_post
+from kafka_broker.domain_divide_tools import domain_divide
+from kafka_broker.kafka_tools import kafka_producer
+
+logger = Logger(file_path='./query_log/', show_terminal=True)  # 日志配置
 
 
 class RespDomainResultHandler(tornado.web.RequestHandler):
@@ -43,7 +55,7 @@ class TaskConfirmHandler(tornado.web.RequestHandler):
         根据文件名称，将数据保存到本地
         """
         path = './verified_domain_data/'
-        with open(path+file_name,'w') as fp:
+        with open(path + file_name, 'w') as fp:
             fp.write(domain_ns)
 
     @gen.coroutine
@@ -53,17 +65,17 @@ class TaskConfirmHandler(tornado.web.RequestHandler):
         """
         param = self.request.body.decode("utf-8")
         param = json.loads(param)
-
         file_name = param['file_name']  # 文件名称
-        task_id = param['task_id']   # 任务id
+        task_id = param['task_id']  # 任务id
         domain_ns = param['domain_ns']  # 域名ns的数据
         task_type = param['task_type']  # 任务类型，sec/query
-        self.save_file(domain_ns, file_name)   # 将域名ns数据保存到本地
+        self.save_file(domain_ns, file_name)  # 将域名ns数据save
 
         file_md5 = hashlib.md5(domain_ns.encode("utf-8")).hexdigest()  # 生成md5值
         ip, port = read_server('../system.conf')  # 读取主服务器ip地址
         remote_ip, remote_port = read_remote_ip('../system.conf')  # 远程的IP地址
-        remote_url = "http://{ip}:{port}/notify/{task_type}/result_list".format(ip=remote_ip, port=str(remote_port), task_type=task_type)  # 远程访问的地址
+        remote_url = "http://{ip}:{port}/notify/{task_type}/result_list".format(ip=remote_ip, port=str(remote_port),
+                                                                                task_type=task_type)  # 远程访问的地址
         file_url = "http://{ip}:{port}/file/{file_name}".format(ip=ip, port=str(port), file_name=file_name)  # 文件存储url
         post_body = {
             "id": task_id,
@@ -71,41 +83,28 @@ class TaskConfirmHandler(tornado.web.RequestHandler):
             "file_url": file_url,
             "file_md5": file_md5
         }
-        # print remote_url
-        for i in range(3):  # 最多重试3次
-            respond = yield async_post(remote_url, 
-                                       json_data=post_body, 
-                                       data_type="json")
-            if "ERROR" in respond:
-                excpetion = respond[1]
-                logger.logger.error('向对方发送域名ns结果文件失败:'+str(excpetion))
-                return
-            resp_code = respond['code']
-            if resp_code == 1:
-                logger.logger.info('对方接收域名ns结果文件成功')
-                break                
-            else:
-                logger.logger.warning('对方接收域名ns结果文件失败，次数：'+str(i)+'/3')
 
-            '''
-            try:
-                response = requests.post(url=remote_url, json=post_body)
-            except requests.exceptions.RequestException, e:
-                logger.logger.error('向对方发送域名ns结果文件失败:'+str(e))
-                return
-            resp_code = json.loads(response.content)['code']
-            if resp_code == 1:  # 1为对方接收成功
-                logger.logger.info('对方接收域名ns结果文件成功')
-                break
+        for i in range(3):  # 最多重试3次
+            respond = yield async_post(remote_url,
+                                       json_data=post_body,
+                                       data_type="json")
+            if respond[0] == 'True':
+                resp_code = respond[1]['code']
+                if resp_code == 1:
+                    logger.logger.info('对方接收域名dns结果文件成功')
+                    break
+                else:
+                    logger.logger.warning('对方接收域名dns结果文件失败，次数：' + str(i + 1) + '/3')
             else:
-                logger.logger.warning('对方接收域名ns结果文件失败，次数：'+str(i)+'/3')
-            '''
+                exception = respond[1]
+                logger.logger.error('向对方发送域名dns结果文件失败:' + str(i + 1) + "/3 " + str(exception))
 
 
 class RecvDomainRequestHandler(tornado.web.RequestHandler):
     """
     接收来自对方服务器的域名实时/非实时验证请求
     """
+
     @gen.coroutine
     def post(self, task_type):
         param = self.request.body.decode('utf-8')
@@ -115,30 +114,21 @@ class RecvDomainRequestHandler(tornado.web.RequestHandler):
             task_id = param['id']
             request_time = param['time']
             file_md5 = param['file_md5']
-
         except Exception, e:  # 解析失败
-            logger.logger.error('请求内容不符合要求：'+str(e))
+            logger.logger.error('请求内容不符合要求：' + str(e))
             self.write({'time': time.time(), 'code': 2})  # 请求内容不符合要求
             self.finish()
             return
 
         domain_data = yield async_fetch(file_url, "text")
-        if "ERROR" in domain_data:
+        if domain_data[0] == "False":
             exception = str(domain_data[1])
             logger.logger.error('获取要探测的域名失败：' + exception)
             self.write({'time': request_time, 'code': 2})  # 获取失败
             self.finish()
             return
 
-        '''
-        try:
-            domain_data = requests.get(file_url).content  # 获取要探测的域名数据
-        except Exception, e:  # 获取域名的数据失败，
-            logger.logger.error('获取要探测的域名失败：'+str(e))
-            self.write({'time': request_time, 'code': 2})  # 获取失败
-            self.finish()
-            return
-        '''
+        domain_data = domain_data[1]  # !
 
         domain_md5 = hashlib.md5(domain_data.encode("utf-8")).hexdigest()  # 数据自身的md5值
 
@@ -166,40 +156,51 @@ class RecvDomainRequestHandler(tornado.web.RequestHandler):
         if task_type == 'sec':
             periodic_domain_request(domain_data, task_id, local_file_name)  # 执行定时查询节点
         elif task_type == 'query':
-            query_domain_request(domain_data, task_id, local_file_name)  # 执行实时查询节点
+            # query_domain_request(domain_data, task_id, local_file_name)  # post 传输数据 执行实时查询节点
+            query_domain_request_kafka(domain_data, task_id, local_file_name)  # kafka 传输数据
 
+# @gen.coroutine
+# def query_domain_request(domains, task_id, file_name):
+#     """
+#     将需要实时查询的域名传递给实时查询http_client_realtime
+#     """
+#     query_ip, port = read_client_realtime('../system.conf')  # 获取实时探测点的ip和端口
+#     url = 'http://' + query_ip + ':' + str(port) + '/domain_ns_realtime/'
+#     request_data = {
+#         'domains': domains,
+#         'id': task_id,
+#         'file_name': file_name
+#     }
+#
+#     for i in range(3):
+#         respond = yield async_post(url, json_data=request_data, data_type="str")
+#         if respond[0] == 'True':
+#             if respond[1] == 'OK':  # Attention
+#                 break
+#         else:
+#             excpetion = respond[1]
+#         logger.logger.error('向实时查询节点发送域名数据失败%s/3' % str(i))
 
 @gen.coroutine
-def query_domain_request(domains, task_id, file_name):
+def query_domain_request_kafka(domain_data, task_id):
     """
-    将需要实时查询的域名传递给实时查询http_client_realtime
+    :param domain_data:
+    :param task_id:
+    :param local_file_name:
+    :return Null
+    :该方法通过kafka将数据拆分后传输到broker中
     """
-    query_ip, port = read_client_realtime('../system.conf')  # 获取实时探测点的ip和端口
-    url = 'http://' + query_ip + ':' + str(port)+'/domain_ns_realtime/'
-    request_data = {
-        'domains': domains,
-        'id': task_id,
-        'file_name': file_name
-    }
+    local_file_name = "domain"
+    server = "10.245.146.115:9092"
+    topics = ["ddivide6", "ddivide7", "ddivide8", "ddivide9"]
+    with open(local_file_name, 'r') as f:
+        domain = f.readlines()
+    domains = domain_divide(blocks=4, id=1, type="query").bomb(value=domain)
+    kafka_producer(topic=topics[0], server_list=server).push(values=domains[0])
+    kafka_producer(topic=topics[1], server_list=server).push(values=domains[1])
+    kafka_producer(topic=topics[2], server_list=server).push(values=domains[2])
+    kafka_producer(topic=topics[3], server_list=server).push(values=domains[3])
 
-    for i in range(3):
-        respond = yield async_post(url, json_data=request_data, data_type="str")
-        if respond == 'OK':
-            break
-        elif "ERROR" in respond:
-            excpetion = respond[1]
-            logger.logger.error('向实时查询节点发送域名数据失败%s/3' % str(i))
-
-        '''
-        try:
-
-            respond = requests.post(url, json=request_data, timeout=5)
-            if respond.text == 'OK':
-                break
-            logger.logger.error('向实时查询节点发送域名数据失败%s/3' % str(i))
-        except requests.exceptions.RequestException, e:
-            logger.logger.error('实时节点连接失败:' + str(e))
-        '''
 
 @gen.coroutine
 def periodic_domain_request(domains, task_id, file_name):
@@ -207,7 +208,7 @@ def periodic_domain_request(domains, task_id, file_name):
     将需要实时查询的域名传递给定时查询http_client_sec
     """
     periodic_ip, port = read_client_periodic('../system.conf')  # 获取ip地址和端口号
-    url = 'http://' + periodic_ip + ':' + str(port) +'/domain_ns_periodic/'
+    url = 'http://' + periodic_ip + ':' + str(port) + '/domain_ns_periodic/'
     request_data = {
         'domains': domains,
         'id': task_id,
@@ -216,18 +217,15 @@ def periodic_domain_request(domains, task_id, file_name):
 
     for i in range(3):
         respond = yield async_post(url, json_data=request_data, data_type="str")
-        if respond == 'OK':
-            break
-        elif "ERROR" in respond:
-            excpetion = respond[1]
-            logger.logger.error('向定时查询节点发送域名数据失败%s/3' % str(i))
-
-        '''
-        try:
-            respond = requests.post(url, json=request_data, timeout=5)
-            if respond.text == 'OK':
+        if respond[0] == 'True':
+            if respond[1] == 'OK':
                 break
-            logger.logger.error('向定时查询节点发送域名数据失败%s/3' % str(i))
-        except requests.exceptions.RequestException, e:
-            logger.logger.error('定时节点连接失败:' + str(e))
-        '''
+        else:
+            excpetion = respond[1]
+        logger.logger.error('向定时查询节点发送域名数据失败%s/3' % str(i))
+
+
+if __name__ == '__main__':
+    print 1
+    query_domain_request_kafka()
+    print "done"

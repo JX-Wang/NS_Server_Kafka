@@ -41,6 +41,15 @@ def read_remote_ip(file_name):
     port = cf.getint("remote_ip","port")
     return ip, port
 
+
+def read_kafka_broker(file_name):
+    """读取kafka信息"""
+    cf = ConfigParser.ConfigParser()
+    cf.read(file_name)
+    broker = cf.get("kafka_ip", "ip")
+    port = cf.getint("kafka_ip", "port")
+    topic = cf.git("kafka_ip", "topic")
+
 if __name__ == '__main__':
     print read_server()
     print read_client_realtime()
