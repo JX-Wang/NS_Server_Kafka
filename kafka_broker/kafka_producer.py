@@ -12,8 +12,8 @@ from time import sleep
 
 class kafka_producer:
     def __init__(self):
-        self.bootstrap_sever = "10.245.146.139:9092"
-        self.topic = "nsrst1"
+        self.bootstrap_sever = "10.245.146.115:9092"
+        self.topic = "ddivide6"
 
     def push(self, values):
         print "Start"
@@ -34,9 +34,13 @@ class kafka_producer:
 
 
 if __name__ == '__main__':
-    d = {
-        "id": 1,
-        "domains": [1, 2, 3]
-    }
-    kafka_producer().push(values=d)
+    # d = {
+    #     "id": 1,
+    #     "domains": [1, 2, 3]
+    # }
+    with open("domains", 'r') as f:
+        # d = f.read()
+        d = "11111"
+        kafka_producer().push(values=d)
+    print "done"
 

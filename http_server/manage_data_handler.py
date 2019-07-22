@@ -16,7 +16,6 @@ import hashlib
 import time
 import json
 from tornado import gen
-
 # 第三方库
 from system_parameter import *
 from Logger import Logger
@@ -31,7 +30,7 @@ class RespDomainResultHandler(tornado.web.RequestHandler):
     """
     根据文件名，服务器返回请求的文件内容
     """
-
+    @gen.coroutine
     def get(self, file_name):
         self.set_header('Content-Type', 'application/octet-stream')
         self.set_header('Content-Disposition', 'attachment; filename=' + file_name)
