@@ -16,6 +16,10 @@ import hashlib
 import time
 import json
 from tornado import gen
+from gevent import monkey
+monkey.patch_all()
+
+
 # 第三方库
 from system_parameter import *
 from Logger import Logger
@@ -32,9 +36,13 @@ class RespDomainResultHandler(tornado.web.RequestHandler):
     """
     @gen.coroutine
     def get(self, file_name):
+        time.sleep(10)
+        self.write("1111111")
+        return
         self.set_header('Content-Type', 'application/octet-stream')
         self.set_header('Content-Disposition', 'attachment; filename=' + file_name)
-        with open("./verified_domain_data/" + file_name, "r") as f:
+        # with open("./verified_domain_data/" + file_name, "r") as f:
+        with open(file_name, "r") as f:
             while True:
                 data = f.read(1024)
                 if not data:
