@@ -5,7 +5,8 @@ import json
 c = Consumer({
     'bootstrap.servers': '10.245.146.221:9092',
     'group.id': '1',
-    # 'auto.offset.reset': 'earliest'
+    'enable.auto.commit': True,
+    'auto.offset.reset': 'latest'
 })
 
 c.subscribe(['test'])
@@ -18,7 +19,7 @@ while True:
         print("Consumer error: {}".format(msg.error()))
         continue
 
-    print('Received message: {}'.format(msg.value().decode('utf-8')))
+    print 'Received message: {}'.format(msg.value().decode('utf-8')), msg.partition()
 
 c.close()
 # kafka_consumer = Consumer(
