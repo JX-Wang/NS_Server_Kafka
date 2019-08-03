@@ -67,8 +67,7 @@ score = [
     [1, 73],
     [2, 82],
     [1.5, 89],
-
-    #  if new
+    # new
     [2, 85],
     [2, 85],
     [2, 90],
@@ -87,5 +86,4 @@ print cent
 print total
 
 print "GPA is %f " % ((total / cent) * 4 / 100)
-
 print "Average is %f" % (num / len(score))
